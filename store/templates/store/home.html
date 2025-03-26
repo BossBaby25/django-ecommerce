@@ -1,0 +1,61 @@
+{% extends 'store/base.html' %}
+{% load static %}
+
+{% block title %}Home - E-Commerce{% endblock %}
+
+{% block content %}
+<div class="container mx-auto mt-6 px-4">
+    <h2 class="mb-6 text-center text-3xl font-bold text-gray-800">Featured Products</h2>
+    
+    <div class="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-6">
+        {% for product in products %}
+        <div class="bg-white shadow-lg rounded-lg overflow-hidden transform transition hover:scale-105">
+            <div class="relative w-full h-56">
+                {% if product.image %}
+                    <img src="{{ product.image.url }}" class="w-full h-full object-cover" alt="{{ product.name }}">
+                {% else %}
+                    <img src="{% static 'images/default.png' %}" class="w-full h-full object-cover" alt="No Image">
+                {% endif %}
+            </div>
+            <div class="p-4 flex flex-col h-48">
+                <h5 class="text-lg font-semibold text-gray-900 truncate">{{ product.name }}</h5>
+                <p class="text-gray-600 text-sm flex-grow overflow-hidden line-clamp-3">
+                    {{ product.description }}
+                </p>
+                <p class="text-xl font-bold text-blue-600 mt-2">${{ product.price }}</p>
+                <button class="bg-blue-500 text-white px-4 py-2 mt-3 rounded-lg hover:bg-blue-700 transition add-to-cart" 
+                        data-product-id="{{ product.id }}">
+                    Add to Cart
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".add-to-cart").forEach(button => {
+            button.addEventListener("click", function () {
+                let productId = this.dataset.productId;
+                
+                fetch("{% url 'add_to_cart' %}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}",
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: "product_id=" + productId
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.cart_count !== undefined) {
+                        document.getElementById("cart-count").innerText = data.cart_count;
+                    }
+                });
+            });
+        });
+    });
+</script>
+
+{% endblock %}

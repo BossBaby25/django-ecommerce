@@ -1,0 +1,89 @@
+{% extends 'store/base.html' %}
+
+{% block title %}Shopping Cart{% endblock %}
+
+{% block content %}
+<div class="container mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg min-h-screen flex flex-col">
+    <h2 class="mb-6 text-center text-3xl font-semibold text-gray-800">Your Shopping Cart</h2>
+
+    {% if cart_items %}
+    <div class="overflow-x-auto flex-grow">
+        <table class="table-auto w-full border-collapse border border-gray-300">
+            <thead class="bg-gray-800 text-white">
+                <tr>
+                    <th class="px-4 py-2">Product</th>
+                    <th class="px-4 py-2">Price</th>
+                    <th class="px-4 py-2">Quantity</th>
+                    <th class="px-4 py-2">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr class="border border-gray-300" data-product-id="{{ item.product.id }}">
+                    <td class="px-4 py-2">{{ item.product.name }}</td>
+                    <td class="px-4 py-2 text-center">${{ item.product.price }}</td>
+                    <td class="px-4 py-2 flex justify-center items-center space-x-2">
+                        <button class="bg-gray-300 text-gray-700 px-3 py-1 rounded decrease-quantity" data-product-id="{{ item.product.id }}">−</button>
+                        <span class="mx-2 font-semibold product-quantity">{{ item.quantity }}</span>
+                        <button class="bg-gray-300 text-gray-700 px-3 py-1 rounded increase-quantity" data-product-id="{{ item.product.id }}">+</button>
+                    </td>
+                    <td class="px-4 py-2 text-center product-total">${{ item.total_price }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-6 text-center bg-gray-900 text-white py-4 shadow-md rounded-lg">
+        <h4 class="text-xl font-bold">Total Price: <span id="cart-total">${{ total_price }}</span></h4>
+    </div>
+
+    {% else %}
+    <p class="text-center text-gray-500 mt-6 flex-grow">Your cart is empty. <a href="{% url 'home' %}" class="text-blue-500 hover:underline">Continue Shopping</a></p>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        function updateCartUI(data) {
+            document.getElementById("cart-count").innerText = data.cart_count;
+            document.getElementById("cart-total").innerText = `$${data.total_price}`;
+        }
+
+        document.querySelectorAll(".increase-quantity").forEach(button => {
+            button.addEventListener("click", function () {
+                let productId = this.dataset.productId;
+
+                fetch("{% url 'add_to_cart' %}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}",
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: "product_id=" + productId
+                })
+                .then(response => response.json())
+                .then(data => updateCartUI(data));
+            });
+        });
+
+        document.querySelectorAll(".decrease-quantity").forEach(button => {
+            button.addEventListener("click", function () {
+                let productId = this.dataset.productId;
+
+                fetch("{% url 'decrease_quantity' %}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}",
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: "product_id=" + productId
+                })
+                .then(response => response.json())
+                .then(data => updateCartUI(data));
+            });
+        });
+    });
+</script>
+
+{% endblock %}
