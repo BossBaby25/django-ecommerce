@@ -4,12 +4,26 @@
 {% block title %}Home - E-Commerce{% endblock %}
 
 {% block content %}
-<div class="container mx-auto mt-6 px-4">
-    <h2 class="mb-6 text-center text-3xl font-bold text-gray-800">Featured Products</h2>
-    
-    <div class="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-6">
+<div class="container mx-auto mt-8 px-6">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8">
+        <h2 class="text-4xl font-bold text-gray-800">Our Products</h2>
+        <div class="flex space-x-4 mt-4 md:mt-0">
+            <select id="categoryFilter" class="px-4 py-2 border rounded-md shadow-sm focus:ring focus:ring-blue-300">
+                <option value="">All Categories</option>
+                {% for category in categories %}
+                    <option value="{{ category.name }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="number" id="minPrice" placeholder="Min Price" class="px-4 py-2 border rounded-md shadow-sm w-24">
+            <input type="number" id="maxPrice" placeholder="Max Price" class="px-4 py-2 border rounded-md shadow-sm w-24">
+            <button id="applyFilters" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">Filter</button>
+        </div>
+    </div>
+
+    <!-- Products Grid -->
+    <div class="grid lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-6">
         {% for product in products %}
-        <div class="bg-white shadow-lg rounded-lg overflow-hidden transform transition hover:scale-105">
+        <div class="bg-white shadow-md rounded-lg overflow-hidden transform transition hover:scale-105 hover:shadow-lg">
             <div class="relative w-full h-56">
                 {% if product.image %}
                     <img src="{{ product.image.url }}" class="w-full h-full object-cover" alt="{{ product.name }}">
@@ -17,13 +31,11 @@
                     <img src="{% static 'images/default.png' %}" class="w-full h-full object-cover" alt="No Image">
                 {% endif %}
             </div>
-            <div class="p-4 flex flex-col h-48">
-                <h5 class="text-lg font-semibold text-gray-900 truncate">{{ product.name }}</h5>
-                <p class="text-gray-600 text-sm flex-grow overflow-hidden line-clamp-3">
-                    {{ product.description }}
-                </p>
-                <p class="text-xl font-bold text-blue-600 mt-2">${{ product.price }}</p>
-                <button class="bg-blue-500 text-white px-4 py-2 mt-3 rounded-lg hover:bg-blue-700 transition add-to-cart" 
+            <div class="p-5 flex flex-col h-52">
+                <h5 class="text-xl font-semibold text-gray-900 truncate">{{ product.name }}</h5>
+                <p class="text-gray-600 text-sm line-clamp-3 overflow-hidden">{{ product.description }}</p>
+                <p class="text-lg font-bold text-blue-600 mt-2">${{ product.price }}</p>
+                <button class="mt-auto bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition add-to-cart" 
                         data-product-id="{{ product.id }}">
                     Add to Cart
                 </button>
@@ -55,7 +67,20 @@
                 });
             });
         });
+
+        // Filtering logic
+        document.getElementById("applyFilters").addEventListener("click", function () {
+            let category = document.getElementById("categoryFilter").value;
+            let minPrice = document.getElementById("minPrice").value;
+            let maxPrice = document.getElementById("maxPrice").value;
+            
+            let url = "?";
+            if (category) url += `category=${category}&`;
+            if (minPrice) url += `min_price=${minPrice}&`;
+            if (maxPrice) url += `max_price=${maxPrice}&`;
+            
+            window.location.href = url.slice(0, -1);
+        });
     });
 </script>
-
 {% endblock %}

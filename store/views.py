@@ -2,12 +2,11 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from .forms import RegisterForm
-from .models import Product
+from .models import Product, Category, Cart
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
-from .models import Product, Cart
 from django.middleware.csrf import get_token
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.contrib.auth.models import AnonymousUser
 
 def register(request):
@@ -23,8 +22,6 @@ def register(request):
     form = RegisterForm()
     return render(request, "store/register.html", {"form": form})
 
-
-# User Login View
 def user_login(request):
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
@@ -36,11 +33,9 @@ def user_login(request):
         form = AuthenticationForm()
     return render(request, 'store/login.html', {'form': form})
 
-# User Logout View
 def user_logout(request):
     logout(request)
     return redirect('login')
-
 
 def delete_product(request, product_id):
     product = Product.objects.get(id=product_id)
@@ -59,17 +54,35 @@ def profile(request):
 
 def home(request):
     products = Product.objects.all()
-    
+    categories = Category.objects.all()
+
+    # Filtering Logic
+    category_filter = request.GET.get('category')
+    min_price = request.GET.get('min_price')
+    max_price = request.GET.get('max_price')
+
+    if category_filter:
+        products = products.filter(category__name=category_filter)
+    if min_price:
+        products = products.filter(price__gte=min_price)
+    if max_price:
+        products = products.filter(price__lte=max_price)
+
     cart_count = 0
     if request.user.is_authenticated and not isinstance(request.user, AnonymousUser):
         cart_count = Cart.objects.filter(user=request.user).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
 
-    return render(request, "store/home.html", {"products": products, "cart_count": cart_count})
+    return render(request, "store/home.html", {
+        "products": products,
+        "cart_count": cart_count,
+        "categories": categories
+    })
+
 @login_required
 def cart_view(request):
     cart_items = Cart.objects.filter(user=request.user)
     total_price = sum(item.total_price() for item in cart_items)
-    cart_count = cart_items.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0  # Get total quantity
+    cart_count = cart_items.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
     return render(request, "store/cart.html", {"cart_items": cart_items, "total_price": total_price, "cart_count": cart_count})
 
 @login_required
@@ -90,7 +103,7 @@ def add_to_cart(request):
         total_price = sum(item.total_price() for item in Cart.objects.filter(user=request.user))
 
         return JsonResponse({
-            "cart_count": total_quantity,  # Send total quantity
+            "cart_count": total_quantity,
             "new_quantity": cart_item.quantity,
             "new_total": cart_item.total_price(),
             "total_price": total_price
