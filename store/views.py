@@ -2,7 +2,7 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from .forms import RegisterForm
-from .models import Product, Category, Cart, Order, OrderItem
+from .models import Product, Category, Cart, Order
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
@@ -11,6 +11,8 @@ from django.contrib.auth.models import AnonymousUser
 import time
 from django.contrib import messages
 from django.db import transaction
+from .forms import FeedbackForm
+from .models import Feedback
 
 def register(request):
     if request.method == "POST":
@@ -64,13 +66,25 @@ def user_logout(request):
 @login_required
 def profile(request):
     cart_count = Cart.objects.filter(user=request.user).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-    orders = Order.objects.filter(user=request.user).order_by("-created_at")  # Fetch user's order history
+    orders = Order.objects.filter(user=request.user).order_by("-created_at")
+
+    feedback_form = FeedbackForm()
+    if request.method == "POST":
+        feedback_form = FeedbackForm(request.POST)
+        if feedback_form.is_valid():
+            feedback = feedback_form.save(commit=False)
+            feedback.user = request.user
+            feedback.save()
+            messages.success(request, "Thank you for your feedback!")
+            feedback_form = FeedbackForm()
 
     return render(request, 'store/profile.html', {
         'user': request.user,
         'cart_count': cart_count,
-        'orders': orders
+        'orders': orders,
+        'feedback_form': feedback_form
     })
+
 
 def home(request):
     products = Product.objects.all()
@@ -178,20 +192,19 @@ def checkout(request):
 
     total_price = sum(item.total_price() for item in cart_items)
 
-    with transaction.atomic():
-        order = Order.objects.create(user=request.user, total_price=total_price)
+    product_info_list = []
+    for item in cart_items:
+        product_info_list.append(f"{item.product.name} (x{item.quantity})")
+    products_info_str = ", ".join(product_info_list)
 
-        for cart_item in cart_items:
-            OrderItem.objects.create(
-                order=order,
-                product=cart_item.product,
-                quantity=cart_item.quantity,
-                price=cart_item.product.price
-            )
+    with transaction.atomic():
+        order = Order.objects.create(
+            user=request.user,
+            total_price=total_price,
+            products_info=products_info_str
+        )
 
         cart_items.delete()
 
     request.session["checkout_success"] = "Your order has been placed successfully!"
-
     return redirect("profile")
-

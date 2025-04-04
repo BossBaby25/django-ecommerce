@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Category, Product , Order, OrderItem
+from .models import Category, Product , Order
+from .models import Feedback
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -39,12 +40,28 @@ class ProductAdmin(admin.ModelAdmin):
         """
         return request.user.is_superuser
 
+@admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "total_price", "status", "created_at")
+    list_display = ("id", "user", "total_price", "display_products_info", "status", "created_at")
     list_filter = ("status",)
     search_fields = ("user__username",)
     ordering = ("-created_at",)
     list_editable = ("status",)
 
-admin.site.register(Order, OrderAdmin)
-admin.site.register(OrderItem)
+    def display_products_info(self, obj):
+        return obj.products_info
+    display_products_info.short_description = "Ordered Items"
+
+
+
+@admin.register(Feedback)
+class FeedbackAdmin(admin.ModelAdmin):
+    list_display = ("user", "submitted_at")
+    search_fields = ("user__username", "message")
+    readonly_fields = ("user", "message", "submitted_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
