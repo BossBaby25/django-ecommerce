@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Product
+from .models import Category, Product , Order, OrderItem
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -38,3 +38,13 @@ class ProductAdmin(admin.ModelAdmin):
         Only superusers (admins) can delete products.
         """
         return request.user.is_superuser
+
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "total_price", "status", "created_at")
+    list_filter = ("status",)
+    search_fields = ("user__username",)
+    ordering = ("-created_at",)
+    list_editable = ("status",)
+
+admin.site.register(Order, OrderAdmin)
+admin.site.register(OrderItem)

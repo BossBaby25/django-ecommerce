@@ -2,13 +2,60 @@
 {% block title %}Profile{% endblock %}
 
 {% block content %}
-<div class="container d-flex justify-content-center align-items-center" style="min-height: 70vh;">
-    <div class="col-md-6">
-        <div class="card shadow-sm p-4 text-center">
-            <h2 class="text-primary">Welcome, {{ user.username }}</h2>
-            <p class="text-muted">Email: {{ user.email }}</p>
-            <a href="{% url 'logout' %}" class="btn btn-danger">Logout</a>
+<div class="container mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg min-h-screen flex flex-col">
+    <!-- Profile Card -->
+    <div class="card shadow-lg p-4 border-0 rounded-4">
+        <div class="text-center">
+            <h2 class="text-primary fw-bold">Welcome, {{ user.username }}</h2>
+            <p class="text-muted"><i class="bi bi-envelope"></i> Email: <strong>{{ user.email }}</strong></p>
+            <p><i class="bi bi-cart"></i> Cart Items: <strong>{{ cart_count }}</strong></p>
+            <a href="{% url 'logout' %}" class="btn btn-outline-danger mt-2"><i class="bi bi-box-arrow-right"></i> Logout</a>
         </div>
     </div>
+
+    <!-- Order History Section -->
+    <div class="mt-5">
+        <h3 class="text-center text-dark fw-bold">Your Order History</h3>
+        
+        {% if orders %}
+        <div class="table-responsive mt-3">
+            <table class="table table-hover table-bordered shadow-sm">
+                <thead class="bg-dark text-light">
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Total Price</th>
+                        <th>Status</th>
+                        <th>Order Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>#{{ order.id }}</td>
+                        <td class="text-success fw-bold">${{ order.total_price }}</td>
+                        <td>
+                            {% if order.status == "Pending" %}
+                                <span class="badge text-dark px-3 py-2 rounded-pill">⏳ Pending</span>
+                            {% elif order.status == "Shipped" %}
+                                <span class="badge text-dark px-3 py-2 rounded-pill">🚚 Shipped</span>
+                            {% elif order.status == "Delivered" %}
+                                <span class="badge text-dark px-3 py-2 rounded-pill">✅ Delivered</span>
+                            {% else %}
+                                <span class="badge text-dark px-3 py-2 rounded-pill">❌ Canceled</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ order.created_at|date:"M d, Y h:i A" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center mt-4" role="alert">
+            <i class="bi bi-exclamation-circle"></i> No orders found. Start shopping now!
+        </div>
+        {% endif %}
+    </div>
 </div>
+
 {% endblock %}

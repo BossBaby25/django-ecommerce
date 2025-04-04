@@ -2,12 +2,15 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from .forms import RegisterForm
-from .models import Product, Category, Cart
+from .models import Product, Category, Cart, Order, OrderItem
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.db.models import Sum, Q
 from django.contrib.auth.models import AnonymousUser
+import time
+from django.contrib import messages
+from django.db import transaction
 
 def register(request):
     if request.method == "POST":
@@ -23,40 +26,57 @@ def register(request):
     return render(request, "store/register.html", {"form": form})
 
 def user_login(request):
-    if request.method == 'POST':
+    if "failed_attempts" not in request.session:
+        request.session["failed_attempts"] = 0
+        request.session["lockout_time"] = 0
+
+    failed_attempts = request.session["failed_attempts"]
+    lockout_time = request.session["lockout_time"]
+
+    if lockout_time > time.time():
+        return JsonResponse({"error": f"Too many failed attempts. Try again in {int(lockout_time - time.time())} seconds."}, status=403)
+
+    if request.method == "POST":
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            return redirect('profile')
+            request.session["failed_attempts"] = 0
+            return redirect("profile")
+
+        else:
+            request.session["failed_attempts"] += 1
+            request.session.modified = True
+
+            if request.session["failed_attempts"] >= 3:
+                request.session["lockout_time"] = time.time() + (30 * request.session["failed_attempts"])
+                return JsonResponse({"error": f"Too many failed attempts. Try again in {30 * failed_attempts} seconds."}, status=403)
+
     else:
         form = AuthenticationForm()
-    return render(request, 'store/login.html', {'form': form})
+
+    return render(request, "store/login.html", {"form": form})
 
 def user_logout(request):
     logout(request)
     return redirect('login')
 
-def delete_product(request, product_id):
-    product = Product.objects.get(id=product_id)
-    product.delete()
-    return redirect('home')
-
-@login_required
-def logout_view(request):
-    logout(request)
-    return redirect('home')
-
 @login_required
 def profile(request):
     cart_count = Cart.objects.filter(user=request.user).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-    return render(request, 'store/profile.html', {'user': request.user, 'cart_count': cart_count})
+    orders = Order.objects.filter(user=request.user).order_by("-created_at")  # Fetch user's order history
+
+    return render(request, 'store/profile.html', {
+        'user': request.user,
+        'cart_count': cart_count,
+        'orders': orders
+    })
 
 def home(request):
     products = Product.objects.all()
     categories = Category.objects.all()
 
-    # Filtering Logic
+
     category_filter = request.GET.get('category')
     min_price = request.GET.get('min_price')
     max_price = request.GET.get('max_price')
@@ -147,3 +167,31 @@ def remove_from_cart(request):
             "cart_count": total_quantity,
             "total_price": total_price
         })
+
+@login_required
+def checkout(request):
+    cart_items = Cart.objects.filter(user=request.user)
+
+    if not cart_items.exists():
+        messages.error(request, "Your cart is empty.")
+        return redirect("cart")
+
+    total_price = sum(item.total_price() for item in cart_items)
+
+    with transaction.atomic():
+        order = Order.objects.create(user=request.user, total_price=total_price)
+
+        for cart_item in cart_items:
+            OrderItem.objects.create(
+                order=order,
+                product=cart_item.product,
+                quantity=cart_item.quantity,
+                price=cart_item.product.price
+            )
+
+        cart_items.delete()
+
+    request.session["checkout_success"] = "Your order has been placed successfully!"
+
+    return redirect("profile")
+
